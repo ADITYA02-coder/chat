@@ -4,17 +4,23 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
 
-app.use(express.static(__dirname)); // Serve your HTML file
+const io = new Server(server, {
+  cors: {
+    origin: "https://YOUR-VERCEL-APP.vercel.app",
+    methods: ["GET", "POST"],
+  },
+});
+
+app.use(express.static(__dirname));
 
 io.on("connection", (socket) => {
   socket.on("chat message", (msg) => {
-    // Broadcast the message with ID and text
     io.emit("chat message", msg);
   });
 });
 
-server.listen(3000, () => {
-  console.log("listening on *:3000");
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`listening on *:${PORT}`);
 });
