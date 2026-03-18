@@ -67,6 +67,7 @@
         border: 1px solid var(--border);
         border-radius: 18px;
         box-shadow: var(--shadow);
+        -webkit-backdrop-filter: blur(16px);
         backdrop-filter: blur(16px);
       }
 
@@ -117,6 +118,7 @@
         border-radius: 22px;
         padding: 1.5rem;
         box-shadow: var(--shadow);
+        -webkit-backdrop-filter: blur(18px);
         backdrop-filter: blur(18px);
         overflow: hidden;
         display: flex;
@@ -166,6 +168,7 @@
         border: 1px solid var(--border);
         border-radius: 18px;
         box-shadow: var(--shadow);
+        -webkit-backdrop-filter: blur(16px);
         backdrop-filter: blur(16px);
       }
 
@@ -321,7 +324,7 @@
         }
 
         messages.appendChild(item);
-        window.scrollTo(0, document.body.scrollHeight);
+        item.scrollIntoView({ behavior: "smooth", block: "end" });
       });
     </script>
   </body>
