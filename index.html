@@ -254,10 +254,89 @@
           padding: 0 1rem;
         }
       }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.75);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        padding: 1.5rem;
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+
+      .overlay-card {
+        width: min(420px, 100%);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 1.75rem;
+        box-shadow: var(--shadow);
+      }
+
+      .overlay h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.5rem;
+      }
+
+      .overlay p {
+        margin: 0 0 1rem;
+        color: var(--muted);
+      }
+
+      .overlay input {
+        width: 100%;
+        height: 3rem;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: rgba(15, 23, 42, 0.5);
+        color: var(--text);
+        padding: 0 1rem;
+        font-size: 1rem;
+      }
+
+      .overlay input:focus {
+        outline: none;
+        border-color: rgba(34, 211, 238, 0.8);
+        box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+      }
+
+      .overlay button {
+        margin-top: 0.75rem;
+        width: 100%;
+        height: 3rem;
+        border: none;
+        border-radius: 999px;
+        background: linear-gradient(120deg, var(--accent), var(--accent-2));
+        color: #0b1023;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .overlay .error {
+        margin-top: 0.75rem;
+        color: #f87171;
+        font-size: 0.9rem;
+        min-height: 1.2rem;
+      }
     </style>
   </head>
   <body>
     <div class="bg-glow"></div>
+    <div class="overlay" id="auth-overlay">
+      <div class="overlay-card">
+        <h2>Enter Chat Password</h2>
+        <p>Ask the admin for the shared password to join.</p>
+        <form id="auth-form">
+          <input id="auth-input" type="password" placeholder="Password" required />
+          <button type="submit">Enter Chat</button>
+          <div class="error" id="auth-error"></div>
+        </form>
+      </div>
+    </div>
     <main class="app">
       <header class="topbar">
         <div class="brand">
@@ -267,7 +346,10 @@
             <div class="brand-sub">Socket.IO • Vercel + Render</div>
           </div>
         </div>
-        <div class="status" id="status">Offline</div>
+        <div>
+          <div class="status" id="status">Offline</div>
+          <div class="brand-sub" id="online-count">0 online</div>
+        </div>
       </header>
       <section class="chat">
         <ul id="messages"></ul>
@@ -280,51 +362,82 @@
 
     <script src="https://chat-backend-3iqe.onrender.com/socket.io/socket.io.js"></script>
     <script>
-      const socket = io("https://chat-backend-3iqe.onrender.com");
+      let socket;
       const status = document.getElementById("status");
       const form = document.getElementById("form");
       const input = document.getElementById("input");
       const messages = document.getElementById("messages");
+      const onlineCount = document.getElementById("online-count");
+      const authOverlay = document.getElementById("auth-overlay");
+      const authForm = document.getElementById("auth-form");
+      const authInput = document.getElementById("auth-input");
+      const authError = document.getElementById("auth-error");
 
       let mySocketId = null;
 
-      // Get your own socket ID when connected
-      socket.on("connect", () => {
-        mySocketId = socket.id;
-        status.textContent = "Online";
-        status.classList.add("online");
-      });
+      function connectSocket(password) {
+        socket = io("https://chat-backend-3iqe.onrender.com", {
+          auth: { password },
+        });
 
-      socket.on("disconnect", () => {
-        status.textContent = "Offline";
-        status.classList.remove("online");
+        socket.on("connect", () => {
+          mySocketId = socket.id;
+          status.textContent = "Online";
+          status.classList.add("online");
+          authOverlay.style.display = "none";
+        });
+
+        socket.on("connect_error", (err) => {
+          authError.textContent = err.message || "Connection failed";
+        });
+
+        socket.on("disconnect", () => {
+          status.textContent = "Offline";
+          status.classList.remove("online");
+          authOverlay.style.display = "flex";
+        });
+
+        socket.on("online users", (count) => {
+          onlineCount.textContent = `${count} online`;
+        });
+
+        socket.on("chat message", (msg) => {
+          const item = document.createElement("li");
+          item.textContent = msg.text;
+
+          if (msg.id === mySocketId) {
+            item.classList.add("sent");
+          } else {
+            item.classList.add("received");
+          }
+
+          messages.appendChild(item);
+          item.scrollIntoView({ behavior: "smooth", block: "end" });
+        });
+      }
+
+      authForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        authError.textContent = "";
+        const password = authInput.value.trim();
+        if (!password) {
+          authError.textContent = "Password is required";
+          return;
+        }
+        connectSocket(password);
       });
 
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         const text = input.value.trim();
-        if (text) {
-          // Send message with your socket ID
-          socket.emit("chat message", {
-            id: mySocketId,
-            text: text,
-          });
-          input.value = "";
+        if (!text || !socket) {
+          return;
         }
-      });
-
-      socket.on("chat message", (msg) => {
-        const item = document.createElement("li");
-        item.textContent = msg.text;
-
-        if (msg.id === mySocketId) {
-          item.classList.add("sent");
-        } else {
-          item.classList.add("received");
-        }
-
-        messages.appendChild(item);
-        item.scrollIntoView({ behavior: "smooth", block: "end" });
+        socket.emit("chat message", {
+          id: mySocketId,
+          text: text,
+        });
+        input.value = "";
       });
     </script>
   </body>
